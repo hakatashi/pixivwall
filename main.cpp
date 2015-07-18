@@ -66,7 +66,7 @@ int _cdecl wmain(int argc, LPCWSTR argv[]) {
     LOG(L"Current directory is %s", dirname);
 
     for (int i = 1; i < argc; i++) {
-        WCHAR path[MAX_PATH];
+        LPWSTR path = new WCHAR[MAX_PATH];
 
         PathCchCombine(path, MAX_PATH, dirname, argv[i]);
         paths[i - 1] = path;

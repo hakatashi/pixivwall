@@ -9,6 +9,7 @@ async = require 'async'
 
 rankingURL = 'http://www.pixiv.net/ranking.php?mode=daily&content=illust'
 maxRank = 50
+maxPagePerManga = 5
 currentDate = null
 files = []
 
@@ -65,10 +66,10 @@ async.waterfall [
 			###
 			[id, page, imagetype, extension] = filename.split /[_\.]/
 
-			# Rebuild filename (without extension)
-			filename = "#{id}_#{page}"
+			# Rebuild filename (without extension and page)
+			filename = "#{id}"
 
-			# Rebuild pathname (without extension)
+			# Rebuild pathname (without extension and page)
 			region = 'img-original'
 			pathname = "/#{region}/#{type}/#{year}/#{month}/#{day}/#{hour}/#{minute}/#{second}/#{filename}"
 			thumbnail.pathname = pathname
@@ -79,58 +80,69 @@ async.waterfall [
 			files.push
 				filename: filename
 				url: originalURL
+				id: id
+				page: page
+				isManga: isManga
 
 		done null
 
 	(done) ->
-		fs.exists "images/#{currentDate}", (exists) ->
+		fs.exists path.join(__dirname, "images/#{currentDate}"), (exists) ->
 			if exists
 				done null
 			else
-				fs.mkdir "images/#{currentDate}", done
+				fs.mkdir path.join(__dirname, "images/#{currentDate}"), done
 
 	(done) ->
-		fs.readdir "images/#{currentDate}", done
+		fs.readdir path.join(__dirname, "images/#{currentDate}"), done
 
 	(dirfiles, done) ->
 		files = files.filter (file) -> not dirfiles.some (dirfile) -> dirfile[...file.filename.length] is file.filename
 
 		async.eachLimit files, 5, (file, done) ->
-			console.log "Getting #{file.filename}..."
+			console.log "Getting #{file.id}..."
 
-			async.detectSeries ['png', 'jpg', 'gif'], (extension, resultIn) ->
-				URL = "#{file.url}.#{extension}"
-				console.log "Trying #{URL}..."
+			if file.isManga
+				pages = [0...maxPagePerManga]
+			else
+				pages = [0]
 
-				request
-					url: URL
-					encoding: null
-					headers:
-						Cookie: 'pixiv_embed=pix'
-				, (error, response, body) ->
-					return done(error) if error
-					return resultIn(false) if response.statusCode isnt 200
+			async.detectSeries pages, (page, resultIn) ->
+				async.detectSeries ['jpg', 'png', 'gif', 'jpeg'], (extension, resultIn) ->
+					URL = "#{file.url}_p#{page}.#{extension}"
+					console.log "Trying #{URL}..."
 
-					fs.writeFile "images/#{currentDate}/#{file.filename}.#{extension}", body, (error) ->
-						if error
-							done error
-						else
-							console.log "Saved #{file.filename}.#{extension}"
-							resultIn true
+					request
+						url: URL
+						encoding: null
+						headers:
+							Cookie: 'pixiv_embed=pix'
+					, (error, response, body) ->
+						return done(error) if error
+						return resultIn(false) if response.statusCode isnt 200
+
+						fs.writeFile path.join(__dirname, "images/#{currentDate}/#{file.filename}_p#{page}.#{extension}"), body, (error) ->
+							if error
+								done error
+							else
+								console.log "Saved #{file.filename}_p#{page}.#{extension}"
+								resultIn true
+				, (result) ->
+					if result is false and page is 0
+						console.error new Error "Suitable extension for #{file.filename} not found..."
+
+					resultIn not result
 			, (result) ->
-				if result is false
-					console.error new Error "Suitable extension for #{file.url} not found..."
-
 				done null
 		, done
 
 	(done) ->
-		fs.readdir "images/#{currentDate}", done
+		fs.readdir path.join(__dirname, "images/#{currentDate}"), done
 
 	(dirfiles, done) ->
 		fullpaths = dirfiles.map (dirfile) -> path.join __dirname, "images/#{currentDate}", dirfile
 
-		pixivwall = spawn 'pixivwall', fullpaths
+		pixivwall = spawn path.join(__dirname, 'pixivwall'), fullpaths
 		pixivwall.stdout.on 'data', (data) ->
 			data.toString().split('\n').forEach (line) ->
 				console.log "pixivwall: #{line}"

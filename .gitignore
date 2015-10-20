@@ -79,3 +79,5 @@ $RECYCLE.BIN/
 
 images
 node_modules
+
+*.js

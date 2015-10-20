@@ -121,7 +121,9 @@ async.waterfall [
 						return done(error) if error
 						return resultIn(false) if response.statusCode isnt 200
 
-						fs.writeFile path.join(__dirname, "images/#{currentDate}/#{file.filename}_p#{page}.#{extension}"), body, (error) ->
+						filename = path.join __dirname, "images/#{currentDate}/#{file.filename}_p#{page}.#{extension}"
+
+						fs.writeFile filename, body, (error) ->
 							if error
 								done error
 							else

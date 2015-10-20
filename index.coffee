@@ -142,6 +142,29 @@ async.waterfall [
 		fs.readdir path.join(__dirname, "images/#{currentDate}"), done
 
 	(dirfiles, done) ->
+		# Search for largest size file for each ids
+		largeImages = {}
+		for dirfile in dirfiles
+			if match = dirfile.match /(\d+)_p(\d+)_(\d+)x\..+/
+				[_, id, page, size] = match.map (n) -> parseInt n, 10
+
+				if not largeImages[id]? or largeImages[id].size < size
+					largeImages[id] =
+						id: id
+						page: page
+						size: size
+						file: dirfile
+
+		# Exclude images of which larger-scaled version exists
+		for image of largeImages
+			prefix = "#{image.id}_p#{image.page}"
+			dirfiles = dirfiles.filter (file) ->
+				if file[0...prefix.length] is prefix and file isnt image.file
+					return false
+				else
+					return true
+
+		# Convert to full paths
 		fullpaths = dirfiles.map (dirfile) -> path.join __dirname, "images/#{currentDate}", dirfile
 
 		pixivwall = spawn path.join(__dirname, 'pixivwall'), fullpaths

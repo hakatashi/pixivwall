@@ -6,12 +6,14 @@ spawn = require('child_process').spawn
 request = require 'request'
 cheerio = require 'cheerio'
 async = require 'async'
+imageSize = require 'image-size'
 
 rankingURL = 'http://www.pixiv.net/ranking.php?mode=daily&content=illust'
 maxRank = 50
 maxPagePerManga = 5
 currentDate = null
 files = []
+imageSizes = {}
 
 async.waterfall [
 	(done) ->
@@ -138,44 +140,72 @@ async.waterfall [
 				done null
 		, done
 
-	(done) ->
-		fs.readdir path.join(__dirname, "images/#{currentDate}"), done
+	(done) -> fs.readdir path.join(__dirname, "images/#{currentDate}"), done
 
 	(dirfiles, done) ->
-		# Search for largest size file for each ids
-		largeImages = {}
-		for dirfile in dirfiles
-			if match = dirfile.match /(\d+)_p(\d+)_(\d+)x\..+/
-				[_, id, page, size] = match.map (n) -> parseInt n, 10
+		# Filter images
+		dirfiles = dirfiles.filter (file) ->
+			['.jpg', '.png', '.gif', '.jpeg'].some (extension) ->
+				file[-extension.length...] is extension
 
-				if not largeImages[id]? or largeImages[id].size < size
-					largeImages[id] =
-						id: id
-						page: page
-						size: size
-						file: dirfile
+		dirfiles = dirfiles.map (file) -> path.join __dirname, "images/#{currentDate}", file
 
-		# Exclude images of which larger-scaled version exists
-		for image of largeImages
-			prefix = "#{image.id}_p#{image.page}"
-			dirfiles = dirfiles.filter (file) ->
-				if file[0...prefix.length] is prefix and file isnt image.file
-					return false
-				else
-					return true
+		async.map dirfiles, imageSize, (error, imageSizeList) ->
+			if error then return done error
+			imageSizes = imageSizeList.reduce (previous, current, index) ->
+				previous[dirfiles[index]] = current
+				return previous
+			, imageSizes
+			done null
 
-		# Convert to full paths
-		fullpaths = dirfiles.map (dirfile) -> path.join __dirname, "images/#{currentDate}", dirfile
+	(done) ->
+		i = 0
+		async.whilst(
+			-> i < 1
+			(done) ->
+				i++
+				async.waterfall [
+					(done) ->
+						fs.readdir path.join(__dirname, "images/#{currentDate}"), done
 
-		pixivwall = spawn path.join(__dirname, 'pixivwall'), fullpaths
-		pixivwall.stdout.on 'data', (data) ->
-			data.toString().split('\n').forEach (line) ->
-				console.log "pixivwall: #{line}"
-		pixivwall.on 'close', (code) ->
-			if code isnt 0
-				done new Error "pixivwall exit with code #{code}"
-			else
-				done null
+					(dirfiles, done) ->
+						# Search for largest size file for each ids
+						largeImages = {}
+						for dirfile in dirfiles
+							if match = dirfile.match /(\d+)_p(\d+)_(\d+)x\..+/
+								[_, id, page, size] = match.map (n) -> parseInt n, 10
+
+								if not largeImages[id]? or largeImages[id].size < size
+									largeImages[id] =
+										id: id
+										page: page
+										size: size
+										file: dirfile
+
+						# Exclude images of which larger-scaled version exists
+						for image of largeImages
+							prefix = "#{image.id}_p#{image.page}"
+							dirfiles = dirfiles.filter (file) ->
+								if file[0...prefix.length] is prefix and file isnt image.file
+									return false
+								else
+									return true
+
+						# Convert to full paths
+						fullpaths = dirfiles.map (dirfile) -> path.join __dirname, "images/#{currentDate}", dirfile
+
+						pixivwall = spawn path.join(__dirname, 'pixivwall'), fullpaths
+						pixivwall.stdout.on 'data', (data) ->
+							data.toString().split('\n').forEach (line) ->
+								console.log "pixivwall: #{line}"
+						pixivwall.on 'close', (code) ->
+							if code isnt 0
+								done new Error "pixivwall exit with code #{code}"
+							else
+								done null
+				]
+		)
+
 ], (error) ->
 	if error
 		throw error

@@ -172,13 +172,17 @@ async.waterfall [
 						# Search for largest size file for each ids
 						largeImages = {}
 						for dirfile in dirfiles
-							if match = dirfile.match /(\d+)_p(\d+)_(\d+)x\..+/
-								[_, id, page, size] = match.map (n) -> parseInt n, 10
+							if match = dirfile.match /(\d+)_p(\d+)(_crop)?_(\d+)x\..+/
+								[_, id, page, crop, size] = match
+								[id, page, size] = [id, page, size].map (n) -> parseInt n, 10
 
-								if not largeImages[id]? or largeImages[id].size < size
+								if not largeImages[id]? or
+								largeImages[id].size < size or
+								(largeImages[id].size <= size and not largeImages[id].crop and crop)
 									largeImages[id] =
 										id: id
 										page: page
+										crop: Boolean crop
 										size: size
 										file: dirfile
 

@@ -150,7 +150,16 @@ async.waterfall [
 
 		dirfiles = dirfiles.map (file) -> path.join __dirname, "images/#{currentDate}", file
 
-		async.map dirfiles, imageSize, (error, imageSizeList) ->
+		async.map dirfiles, (file, done) ->
+			# Catch errors while detecting imagesizes... They just aren't needed actually
+			try
+				imageSize file, done
+			catch error
+				# Assume to be big enough not to need to resize it
+				done null,
+					width: Infinity
+					height: Infinity
+		, (error, imageSizeList) ->
 			if error then return done error
 			imageSizes = imageSizeList.reduce (previous, current, index) ->
 				previous[dirfiles[index]] = current

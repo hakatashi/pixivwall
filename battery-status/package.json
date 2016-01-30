@@ -9,5 +9,8 @@
   },
   "author": "Koki Takahashi",
   "license": "MIT",
-  "gypfile": true
+  "gypfile": true,
+  "dependencies": {
+    "nan": "^2.2.0"
+  }
 }

@@ -146,7 +146,8 @@ async.waterfall [
 		# Filter images
 		dirfiles = dirfiles.filter (file) ->
 			['.jpg', '.png', '.gif', '.jpeg'].some (extension) ->
-				file[-extension.length...] is extension
+				path.extname(file) is extension
+		.filter (file) -> path.basename(file).indexOf('-') is -1
 
 		dirfiles = dirfiles.map (file) -> path.join __dirname, "images/#{currentDate}", file
 
@@ -215,9 +216,51 @@ async.waterfall [
 							if code isnt 0
 								done new Error "pixivwall exit with code #{code}"
 							else
+								console.log 'Wallpaper successfully set!'
 								done null
-				]
+				], done
+			done
 		)
+
+	# We successfully set wallpaper with normal quality of image. Now improve quality of image using waifu2x!
+
+	# Crop Image with 16:9 by Imagemagick
+	(done) ->
+		async.forEachOfLimit imageSizes, 3, (size, image, done) ->
+			return done null if size.width is Infinity
+
+			imageFile = path.parse image
+			imageFile.base = "#{imageFile.name}-crop#{imageFile.ext}"
+			croppedImage = path.format imageFile
+
+			newSize =
+				width: Math.min size.width, Math.ceil size.height * (16 / 9)
+				height: Math.min size.height, Math.ceil size.width / (16 / 9)
+
+			return done null if newSize.width is size.width and newSize.height is size.height
+
+			offsetX = Math.floor (size.width - newSize.width) / 2
+			offsetY = Math.floor (size.height - newSize.height) / 2
+
+			# http://www.imagemagick.org/script/command-line-processing.php#geometry
+			geometry = "#{newSize.width}x#{newSize.height}+#{offsetX}+#{offsetY}"
+
+			console.log "Cropping #{path.basename image} to #{path.basename croppedImage} with #{geometry}"
+
+			convert = spawn 'convert', [
+				'-crop', geometry
+				image
+				croppedImage
+			]
+			convert.stdout.on 'data', (data) ->
+				data.toString().split('\n').forEach (line) ->
+					console.log "convert: #{line}"
+			convert.on 'close', (code) ->
+				if code isnt 0
+					done new Error "Imagemagick exit with code #{code}"
+				else
+					done null
+		, done
 
 ], (error) ->
 	if error

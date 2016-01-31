@@ -266,9 +266,10 @@ async.waterfall [
 						console.log "Skip cropping because #{path.basename croppedImage} already exists"
 						return done null
 
+					# Skip scaling if target dimension is totally the same with the original
 					if newSize.width is size.width and newSize.height is size.height
-						console.log "Moving #{path.basename image} to #{path.basename croppedImage}"
-						return done null
+						console.log "Copying #{path.basename image} to #{path.basename croppedImage}"
+						return fs.copy image, croppedImage, done
 
 					console.log "Cropping #{path.basename image} to #{path.basename croppedImage} with #{geometry}"
 

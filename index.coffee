@@ -173,58 +173,27 @@ async.waterfall [
 			done null
 
 	(done) ->
-		i = 0
-		async.whilst(
-			-> i < 1
+		async.waterfall [
 			(done) ->
-				i++
-				async.waterfall [
-					(done) ->
-						fs.readdir path.join(__dirname, "images/#{currentDate}"), done
+				fs.readdir path.join(__dirname, "images/#{currentDate}"), done
 
-					(dirfiles, done) ->
-						# Search for largest size file for each ids
-						largeImages = {}
-						for dirfile in dirfiles
-							if match = dirfile.match /(\d+)_p(\d+)(_crop)?_(\d+)x\..+/
-								[_, id, page, crop, size] = match
-								[id, page, size] = [id, page, size].map (n) -> parseInt n, 10
+			(dirfiles, done) ->
+				# Convert to full paths
+				fullpaths = dirfiles
+				.filter (file) -> file.match /^\d+_p\d+\.\w+$/
+				.map (dirfile) -> path.join __dirname, "images/#{currentDate}", dirfile
 
-								if not largeImages[id]? or
-								largeImages[id].size < size or
-								(largeImages[id].size <= size and not largeImages[id].crop and crop)
-									largeImages[id] =
-										id: id
-										page: page
-										crop: Boolean crop
-										size: size
-										file: dirfile
-
-						# Exclude images of which larger-scaled version exists
-						for image of largeImages
-							prefix = "#{image.id}_p#{image.page}"
-							dirfiles = dirfiles.filter (file) ->
-								if file[0...prefix.length] is prefix and file isnt image.file
-									return false
-								else
-									return true
-
-						# Convert to full paths
-						fullpaths = dirfiles.map (dirfile) -> path.join __dirname, "images/#{currentDate}", dirfile
-
-						pixivwall = spawn path.join(__dirname, 'pixivwall'), fullpaths
-						pixivwall.stdout.on 'data', (data) ->
-							data.toString().split('\n').forEach (line) ->
-								console.log "pixivwall: #{line}"
-						pixivwall.on 'close', (code) ->
-							if code isnt 0
-								done new Error "pixivwall exit with code #{code}"
-							else
-								console.log 'Wallpaper successfully set!'
-								done null
-				], done
-			done
-		)
+				pixivwall = spawn path.join(__dirname, 'pixivwall'), fullpaths
+				pixivwall.stdout.on 'data', (data) ->
+					data.toString().split('\n').forEach (line) ->
+						console.log "pixivwall: #{line}"
+				pixivwall.on 'close', (code) ->
+					if code isnt 0
+						done new Error "pixivwall exit with code #{code}"
+					else
+						console.log 'Wallpaper successfully set!'
+						done null
+		], done
 
 	# We successfully set wallpaper with normal quality of image. Now improve quality of image using waifu2x!
 
@@ -291,7 +260,7 @@ async.waterfall [
 
 				(exists, done) ->
 					if exists
-						console.log "Skip scaling because #{scaledImage} already exists"
+						console.log "Skip scaling because #{path.basename scaledImage} already exists"
 						return done null
 
 					console.log "Scaling #{path.basename croppedImage} to #{path.basename scaledImage}"

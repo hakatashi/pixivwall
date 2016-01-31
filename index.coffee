@@ -1,4 +1,4 @@
-fs = require 'fs'
+fs = require 'fs-extra'
 url = require 'url'
 path = require 'path'
 spawn = require('child_process').spawn

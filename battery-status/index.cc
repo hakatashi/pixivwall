@@ -2,13 +2,12 @@
 
 using namespace v8;
 
-NAN_METHOD(GetStatus) {
-	NanScope();
-	NanReturnValue(String::New("ok"));
+void GetStatus(const Nan::FunctionCallbackInfo<Value>& info) {
+	info.GetReturnValue().Set(Nan::New("world").ToLocalChecked());
 }
 
-void Init(Handle<Object> exports) {
-	exports->Set(NanSymbol("get"), FunctionTemplate::New(GetStatus)->GetFunction());
+void Init(Local<Object> exports) {
+	exports->Set(Nan::New("get").ToLocalChecked(), Nan::New<FunctionTemplate>(GetStatus)->GetFunction());
 }
 
 NODE_MODULE(batterystatus, Init)

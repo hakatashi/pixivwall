@@ -8,12 +8,16 @@ cheerio = require 'cheerio'
 async = require 'async'
 imageSize = require 'image-size'
 
+batteryStatus = require './battery-status'
+
 rankingURL = 'http://www.pixiv.net/ranking.php?mode=daily&content=illust'
 maxRank = 50
 maxPagePerManga = 5
 currentDate = null
 files = []
 imageSizes = {}
+
+threshold = 560
 
 async.waterfall [
 	(done) ->
@@ -226,18 +230,27 @@ async.waterfall [
 
 	# Crop Image with 16:9 by Imagemagick
 	(done) ->
-		async.forEachOfLimit imageSizes, 3, (size, image, done) ->
+		# Skip if battery is not charging
+		if batteryStatus() isnt 1
+			console.log 'Battery is not charging. Skip scaling...'
+			return done null
+
+		async.forEachOfLimit imageSizes, 1, (size, image, done) ->
 			return done null if size.width is Infinity
 
 			imageFile = path.parse image
-			imageFile.base = "#{imageFile.name}-crop#{imageFile.ext}"
+			imageFile.base = "#{imageFile.name}-crop.png"
 			croppedImage = path.format imageFile
+
+			imageFile.base = "#{imageFile.name}-2x.png"
+			scaledImage = path.format imageFile
 
 			newSize =
 				width: Math.min size.width, Math.ceil size.height * (16 / 9)
 				height: Math.min size.height, Math.ceil size.width / (16 / 9)
 
-			return done null if newSize.width is size.width and newSize.height is size.height
+			# Skip if the image is big enough not to scale
+			return done null if newSize.width > threshold
 
 			offsetX = Math.floor (size.width - newSize.width) / 2
 			offsetY = Math.floor (size.height - newSize.height) / 2
@@ -245,21 +258,67 @@ async.waterfall [
 			# http://www.imagemagick.org/script/command-line-processing.php#geometry
 			geometry = "#{newSize.width}x#{newSize.height}+#{offsetX}+#{offsetY}"
 
-			console.log "Cropping #{path.basename image} to #{path.basename croppedImage} with #{geometry}"
+			async.waterfall [
+				(done) -> fs.access croppedImage, (error) -> done null, not error
 
-			convert = spawn 'convert', [
-				'-crop', geometry
-				image
-				croppedImage
-			]
-			convert.stdout.on 'data', (data) ->
-				data.toString().split('\n').forEach (line) ->
-					console.log "convert: #{line}"
-			convert.on 'close', (code) ->
-				if code isnt 0
-					done new Error "Imagemagick exit with code #{code}"
-				else
-					done null
+				(exists, done) ->
+					if exists
+						console.log "Skip cropping because #{path.basename croppedImage} already exists"
+						return done null
+
+					if newSize.width is size.width and newSize.height is size.height
+						console.log "Moving #{path.basename image} to #{path.basename croppedImage}"
+						return done null
+
+					console.log "Cropping #{path.basename image} to #{path.basename croppedImage} with #{geometry}"
+
+					convert = spawn 'convert', [
+						'-crop', geometry
+						image
+						croppedImage
+					]
+					convert.stdout.on 'data', (data) ->
+						data.toString().split('\n').forEach (line) ->
+							console.log "convert: #{line}"
+					convert.on 'close', (code) ->
+						if code isnt 0
+							done new Error "Imagemagick exit with code #{code}"
+						else
+							done null
+
+				(done) -> fs.access scaledImage, (error) -> done null, not error
+
+				(exists, done) ->
+					if exists
+						console.log "Skip scaling because #{scaledImage} already exists"
+						return done null
+
+					console.log "Scaling #{path.basename croppedImage} to #{path.basename scaledImage}"
+
+					if imageFile.ext is 'jpg' or imageFile.ext is 'jpeg'
+						mode = 'noise_scale'
+					else
+						mode = 'scale'
+
+					waifu2x = spawn 'waifu2x-converter', [
+						'--jobs', '1'
+						'--model_dir', 'C:\\Program Files\\waifu2x-converter\\models'
+						'--mode', mode
+						'--input_file', croppedImage
+						'--output_file', scaledImage
+					]
+
+					waifu2x.stdout.on 'data', (data) ->
+						data.toString().split('\n').forEach (line) ->
+							console.log "waifu2x: #{line}"
+					waifu2x.on 'close', (code) ->
+						if code isnt 0
+							done new Error "waifu2x-converter exit with code #{code}"
+						else
+							done null
+
+			], done
+
 		, done
 
 ], (error) ->

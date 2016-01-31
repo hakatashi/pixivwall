@@ -291,6 +291,45 @@ async.waterfall [
 
 		, done
 
+	# Now, set wallpaper again to usefully use scaled images
+	(done) ->
+		async.waterfall [
+			(done) ->
+				fs.readdir path.join(__dirname, "images/#{currentDate}"), done
+
+			(dirfiles, done) ->
+				# Create rainbow table to store the images whose quality is the highest in the directory
+				imageTable = Object.create null
+
+				for file in dirfiles
+					if match = file.match /^(\d+_p\d+)(:?-(\d+)x)?\.(\w+)$/
+						[_, id, _, scale, ext] = match
+						scale = parseInt(scale, 10) or 1
+
+						if not imageTable[id] or
+						imageTable[id].scale < scale or
+						(ext is 'png' and imageTable[id].ext isnt 'png')
+							imageTable[id] =
+								file: file
+								scale: scale
+								ext: ext
+
+				# Convert to full paths
+				fullpaths = Object.keys imageTable
+				.map (id) -> path.join __dirname, "images/#{currentDate}", imageTable[id].file
+
+				pixivwall = spawn path.join(__dirname, 'pixivwall'), fullpaths
+				pixivwall.stdout.on 'data', (data) ->
+					data.toString().split('\n').forEach (line) ->
+						console.log "pixivwall: #{line}"
+				pixivwall.on 'close', (code) ->
+					if code isnt 0
+						done new Error "pixivwall exit with code #{code}"
+					else
+						console.log 'Wallpaper successfully set!'
+						done null
+		], done
+
 ], (error) ->
 	if error
 		throw error

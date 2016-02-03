@@ -77,7 +77,7 @@ async.waterfall [
 
 			# Rebuild pathname (without extension and page)
 			region = 'img-original'
-			pathname = ['', region,  type, year, month, day, hour, minute, second, filename].join '/'
+			pathname = ['', region, type, year, month, day, hour, minute, second, filename].join '/'
 			thumbnail.pathname = pathname
 
 			# Rebuild URL

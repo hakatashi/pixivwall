@@ -17,7 +17,7 @@ currentDate = null
 files = []
 imageSizes = {}
 
-threshold = 560
+threshold = 580
 
 async.waterfall [
 	(done) ->

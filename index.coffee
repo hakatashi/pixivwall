@@ -242,7 +242,11 @@ async.waterfall [
 
 					console.log "Cropping #{path.basename image} to #{path.basename croppedImage} with #{geometry}"
 
-					convert = spawn 'convert', [
+					# "convert" is namespace collision with the Windows system tool "convert.exe".
+					# To avoid unexpected behavior with this, please create bat file named "im-convert.bat"
+					# that refers and symlinks to your imagemagick directory.
+					convert = spawn 'cmd', [
+						'/c', 'im-convert'
 						'-crop', geometry
 						image
 						croppedImage

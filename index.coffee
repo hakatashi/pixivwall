@@ -257,6 +257,7 @@ async.waterfall [
 					prefixer = new LineWrapper prefix: 'convert: '
 					convert.stdout.pipe(prefixer).pipe(process.stdout)
 
+					convert.stderr.pipe fs.createWriteStream path.join __dirname, 'log/convert.log'
 					convert.on 'close', (code) ->
 						if code isnt 0
 							done new Error "Imagemagick exit with code #{code}"

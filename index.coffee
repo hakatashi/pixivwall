@@ -7,6 +7,7 @@ request = require 'request'
 cheerio = require 'cheerio'
 async = require 'async'
 imageSize = require 'image-size'
+LineWrapper = require 'stream-line-wrapper'
 
 batteryStatus = require './battery-status'
 
@@ -184,9 +185,10 @@ async.waterfall [
 				.map (dirfile) -> path.join __dirname, "images/#{currentDate}", dirfile
 
 				pixivwall = spawn path.join(__dirname, 'pixivwall'), fullpaths
-				pixivwall.stdout.on 'data', (data) ->
-					data.toString().split('\n').forEach (line) ->
-						console.log "pixivwall: #{line}"
+
+				prefixer = new LineWrapper prefix: 'pixivwall: '
+				pixivwall.stdout.pipe(prefixer).pipe(process.stdout)
+
 				pixivwall.on 'close', (code) ->
 					if code isnt 0
 						done new Error "pixivwall exit with code #{code}"
@@ -251,9 +253,10 @@ async.waterfall [
 						image
 						croppedImage
 					]
-					convert.stdout.on 'data', (data) ->
-						data.toString().split('\n').forEach (line) ->
-							console.log "convert: #{line}"
+
+					prefixer = new LineWrapper prefix: 'convert: '
+					convert.stdout.pipe(prefixer).pipe(process.stdout)
+
 					convert.on 'close', (code) ->
 						if code isnt 0
 							done new Error "Imagemagick exit with code #{code}"
@@ -282,9 +285,9 @@ async.waterfall [
 						'--output_file', scaledImage
 					]
 
-					waifu2x.stdout.on 'data', (data) ->
-						data.toString().split('\n').forEach (line) ->
-							console.log "waifu2x: #{line}"
+					prefixer = new LineWrapper prefix: 'waifu2x: '
+					waifu2x.stdout.pipe(prefixer).pipe(process.stdout)
+
 					waifu2x.on 'close', (code) ->
 						if code isnt 0
 							done new Error "waifu2x-converter exit with code #{code}"

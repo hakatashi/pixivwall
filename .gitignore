@@ -78,6 +78,7 @@ $RECYCLE.BIN/
 # =========================
 
 images
+log
 node_modules
 
 *.js

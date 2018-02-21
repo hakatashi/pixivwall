@@ -244,13 +244,9 @@ async.waterfall [
 
 					console.log "Cropping #{path.basename image} to #{path.basename croppedImage} with #{geometry}"
 
-					# "convert" is namespace collision with the Windows system tool "convert.exe".
-					# To avoid unexpected behavior with this, please create bat file named "im-convert.bat"
-					# that refers and symlinks to your imagemagick directory.
-					convert = spawn 'cmd', [
-						'/c', 'im-convert'
-						'-crop', geometry
+					convert = spawn 'magick', [
 						image
+						'-crop', geometry
 						croppedImage
 					]
 
@@ -278,16 +274,18 @@ async.waterfall [
 					else
 						mode = 'scale'
 
-					waifu2x = spawn 'waifu2x-converter', [
-						'--jobs', '1'
-						'--model_dir', 'C:\\Program Files\\waifu2x-converter\\models'
+					waifu2x = spawn 'C:\\Program Files\\waifu2x-caffe\\waifu2x-caffe-cui', [
+						'--process', 'gpu'
+						'--gpu', '0'
+						'--model_dir', 'C:\\Program Files\\waifu2x-caffe\\models\\upconv_7_anime_style_art_rgb'
 						'--mode', mode
-						'--input_file', croppedImage
-						'--output_file', scaledImage
+						'--input_path', croppedImage
+						'--output_path', scaledImage
 					]
 
 					prefixer = new LineWrapper prefix: 'waifu2x: '
 					waifu2x.stdout.pipe(prefixer).pipe(process.stdout)
+					waifu2x.stderr.pipe(prefixer).pipe(process.stdout)
 
 					waifu2x.on 'close', (code) ->
 						if code isnt 0

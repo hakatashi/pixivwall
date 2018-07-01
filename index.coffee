@@ -156,24 +156,45 @@ async.waterfall [
 
 		dirfiles = dirfiles.map (file) -> path.join __dirname, "images/#{currentDate}", file
 
-		async.map dirfiles, (file, done) ->
-			# Catch errors while detecting imagesizes... They just aren't needed actually
-			try
-				imageSize file, done
-			catch error
-				# Assume to be big enough not to need to resize it
-				done null,
-					width: Infinity
-					height: Infinity
-		, (error, imageSizeList) ->
-			if error then return done error
-			imageSizes = imageSizeList.reduce (previous, current, index) ->
-				previous[dirfiles[index]] = current
-				return previous
-			, imageSizes
-			done null
+		async.parallel [
+			(done) ->
+				randomImageCandidates = dirfiles.filter (file) ->
+					not path.basename(file).includes('-') and path.extname(file) is '.png'
+				randomImage = randomImageCandidates[Math.floor(Math.random() * randomImageCandidates.length)]
 
-	(done) ->
+				targetPath = path.join __dirname, 'images/random.png'
+
+				async.waterfall [
+					(done) -> fs.access targetPath, (error) -> done null, not error
+					(exists, done) ->
+						if exists
+							fs.unlink targetPath, done
+						else
+							done null
+					(done) ->
+						fs.link randomImage, targetPath, done
+				], done
+
+			(done) ->
+				async.map dirfiles, (file, done) ->
+					# Catch errors while detecting imagesizes... They just aren't needed actually
+					try
+						imageSize file, done
+					catch error
+						# Assume to be big enough not to need to resize it
+						done null,
+							width: Infinity
+							height: Infinity
+				, (error, imageSizeList) ->
+					if error then return done error
+					imageSizes = imageSizeList.reduce (previous, current, index) ->
+						previous[dirfiles[index]] = current
+						return previous
+					, imageSizes
+					done null
+		], done
+
+	(_, done) ->
 		async.waterfall [
 			(done) ->
 				fs.readdir path.join(__dirname, "images/#{currentDate}"), done

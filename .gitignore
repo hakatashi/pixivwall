@@ -82,3 +82,5 @@ log
 node_modules
 
 *.js
+
+.env

@@ -1,3 +1,5 @@
+require('dotenv').config()
+
 fs = require 'fs-extra'
 url = require 'url'
 path = require 'path'
@@ -73,20 +75,26 @@ async.waterfall [
 			###
 			[id, page, imagetype, extension] = filename.split /[_\.]/
 
-			# Rebuild filename (without extension and page)
-			filename = "#{id}"
-
 			# Rebuild pathname (without extension and page)
 			region = 'img-original'
-			pathname = ['', region, type, year, month, day, hour, minute, second, filename].join '/'
+			pathname = ['', region, type, year, month, day, hour, minute, second, id].join '/'
 			thumbnail.pathname = pathname
 
 			# Rebuild URL
 			originalURL = url.format thumbnail
 
+			region = 'img-master'
+			size = '500x1000_70'
+			thumbnail.pathname = ['', mark, size, region, type, year, month, day, hour, minute, second, filename].join '/'
+			thumbnail.host = 'i-mail.pximg.net'
+
+			# Rebuild URL
+			publicURL = url.format thumbnail
+
 			files.push
-				filename: filename
+				filename: id
 				url: originalURL
+				publicURL: publicURL
 				id: id
 				page: page
 				isManga: isManga
@@ -94,11 +102,24 @@ async.waterfall [
 		done null
 
 	(done) ->
-		fs.exists path.join(__dirname, "images/#{currentDate}"), (exists) ->
-			if exists
-				done null
-			else
-				fs.mkdir path.join(__dirname, "images/#{currentDate}"), done
+		async.parallel [
+			(done) ->
+				randomFile = files[Math.floor Math.random() * files.length]
+				request
+					url: "https://maker.ifttt.com/trigger/android_wallpaper/with/key/#{process.env.IFTTT_TOKEN}"
+					method: 'POST'
+					body: JSON.stringify value1: randomFile.publicURL
+					headers:
+						'Content-Type': 'application/json'
+				, done
+
+			(done) ->
+				fs.exists path.join(__dirname, "images/#{currentDate}"), (exists) ->
+					if exists
+						done null
+					else
+						fs.mkdir path.join(__dirname, "images/#{currentDate}"), done
+		], done
 
 	(done) ->
 		fs.readdir path.join(__dirname, "images/#{currentDate}"), done

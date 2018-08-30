@@ -121,7 +121,7 @@ async.waterfall [
 						fs.mkdir path.join(__dirname, "images/#{currentDate}"), done
 		], done
 
-	(done) ->
+	(_, done) ->
 		fs.readdir path.join(__dirname, "images/#{currentDate}"), done
 
 	(dirfiles, done) ->

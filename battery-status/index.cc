@@ -1,23 +1,27 @@
-#include <nan.h>
-// windows.h is already included in nan.h
+#include <napi.h>
+#include <uv.h>
+#include <windows.h>
 
-using namespace v8;
+using namespace Napi;
 
-void GetStatus(const Nan::FunctionCallbackInfo<Value>& info) {
+napi_value GetStatus(const Napi::CallbackInfo& info) {
+	Napi::Env env = info.Env();
+
 	LPSYSTEM_POWER_STATUS lpSystemPowerStatus;
 
 	// Get current buttery status
 	GetSystemPowerStatus(lpSystemPowerStatus);
 
 	// Create local v8 number instance pointing buttery status number
-	Local<Int32> localButteryStatusNumber = Nan::New(lpSystemPowerStatus->ACLineStatus);
+	napi_value localButteryStatusNumber = Napi::Number::New(env, lpSystemPowerStatus->ACLineStatus);
 
 	// Set return value
-	info.GetReturnValue().Set(localButteryStatusNumber);
+	return localButteryStatusNumber;
 }
 
-void Init(Local<Object> exports) {
-	exports->Set(Nan::New("get").ToLocalChecked(), Nan::New<FunctionTemplate>(GetStatus)->GetFunction());
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+	exports.Set(Napi::String::New(env, "get"), Napi::Function::New(env, GetStatus));
+	return exports;
 }
 
-NODE_MODULE(batterystatus, Init)
+NODE_API_MODULE(batterystatus, Init)

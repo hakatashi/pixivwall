@@ -106,7 +106,7 @@ async.waterfall [
 			(done) ->
 				randomFile = files[Math.floor Math.random() * files.length]
 				request
-					url: "https://maker.ifttt.com/trigger/android_wallpaper/with/key/#{process.env.IFTTT_TOKEN}"
+					url: "https://maker.ifttt.com/trigger/pixivwall/with/key/#{process.env.IFTTT_TOKEN}"
 					method: 'POST'
 					body: JSON.stringify value1: randomFile.publicURL
 					headers:

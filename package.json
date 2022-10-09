@@ -24,7 +24,7 @@
     "dotenv": "^6.0.0",
     "fs-extra": "^0.26.5",
     "image-size": "^0.3.5",
-    "request": "^2.58.0",
+    "request": "^2.88.2",
     "stream-line-wrapper": "^0.1.1"
   },
   "coffeelintConfig": {
